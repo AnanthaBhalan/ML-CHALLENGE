@@ -31,3 +31,5 @@ soft_addr.txt
 zip_test.txt
 submission_package/output/
 submission.zip
+shardtest/
+*.err
