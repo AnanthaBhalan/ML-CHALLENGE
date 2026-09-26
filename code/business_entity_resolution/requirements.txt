@@ -1,0 +1,13 @@
+# Business Entity Resolution - ML Challenge 2026
+# Python 3.13.13 (tested); requires >=3.10
+#
+# NOTE: hnswlib and faiss-cpu have no cp313 wheels and are NOT required --
+# the shipped pipeline uses deterministic equality blocking, so the ANN
+# prototype in the research log is optional and non-essential.
+
+polars==1.44.2
+lightgbm==4.7.0
+rapidfuzz==3.14.6
+scikit-learn==1.9.0
+scipy==1.18.1
+numpy==2.5.2
