@@ -18,6 +18,7 @@ It REFUSES to build if validation fails or row counts are short, so a
 malformed package cannot be shipped by accident.
 """
 
+import shutil
 import subprocess
 import sys
 import zipfile
@@ -25,8 +26,10 @@ from pathlib import Path
 
 ROOT = Path(r"c:\Users\admin\Desktop\ML CHALLENGE")
 RES = ROOT / "student_resource"
-OUT = RES / "output"
-CODE = ROOT / "code"
+OUT = RES / "output"                      # where inference writes
+PKG = ROOT / "submission_package"         # the tree we ship
+PKG_OUT = PKG / "output"
+PKG_CODE = PKG / "code"
 ZIP = ROOT / "submission.zip"
 
 EXPECTED_S1 = 1_732_545
@@ -74,24 +77,28 @@ def main():
 
     # ---- 4. required code artefacts -------------------------------------
     required = [
-        CODE / "business_entity_resolution" / "src" / "clf_pipeline.py",
-        CODE / "business_entity_resolution" / "src" / "clf_infer.py",
-        CODE / "business_entity_resolution" / "README.md",
-        CODE / "business_entity_resolution" / "requirements.txt",
-        CODE / "Documentation.md",
+        PKG_CODE / "business_entity_resolution" / "src" / "clf_pipeline.py",
+        PKG_CODE / "business_entity_resolution" / "src" / "clf_infer.py",
+        PKG_CODE / "business_entity_resolution" / "README.md",
+        PKG_CODE / "business_entity_resolution" / "requirements.txt",
+        PKG / "Documentation_template.md",
     ]
     for p in required:
         if not p.exists():
             fail(f"missing code artefact: {p}")
     print("\n[ok] all code artefacts present")
 
-    # ---- 5. build the zip ------------------------------------------------
+    # ---- 5. copy validated outputs into the package tree -----------------
+    PKG_OUT.mkdir(parents=True, exist_ok=True)
+    for name in ("matching_results.tsv", "candidate_pairs.tsv"):
+        shutil.copy2(OUT / name, PKG_OUT / name)
+        print(f"[copy] {name} -> submission_package/output/")
+
+    # ---- 6. build the zip ------------------------------------------------
     with zipfile.ZipFile(ZIP, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as z:
-        for name in ("matching_results.tsv", "candidate_pairs.tsv"):
-            z.write(OUT / name, f"output/{name}")
-        for p in sorted(CODE.rglob("*")):
+        for p in sorted(PKG.rglob("*")):
             if p.is_file():
-                z.write(p, p.relative_to(ROOT).as_posix())
+                z.write(p, p.relative_to(PKG).as_posix())
 
     print(f"\n[done] {ZIP}  ({ZIP.stat().st_size / 1e6:.1f} MB)")
     with zipfile.ZipFile(ZIP) as z:
