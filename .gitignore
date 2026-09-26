@@ -33,3 +33,5 @@ submission_package/output/
 submission.zip
 shardtest/
 *.err
+
+output/*_base.tsv

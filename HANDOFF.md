@@ -62,6 +62,37 @@ for ($i = 0; $i -lt $N; $i++) {
 }
 ```
 
+## Optional: reuse the 104,919 rows already computed
+
+`student_resource/output/*_base.tsv` contains **104,919 already-finished rows**
+(rows 0 – 104,918 of `test_source1.tsv`), produced by the same model, cap and
+threshold. They are internally consistent: identical ID order in both files,
+6.17% singletons, 104,919 unique S1 IDs.
+
+To skip that work, start your shards at row **104,919** and pass `base` first to
+the merge:
+
+```bash
+START0=104919
+N=3
+SPAN=$(( (TOTAL - START0) / N ))
+for i in $(seq 0 $((N-1))); do
+  START=$((START0 + i * SPAN))
+  if [ "$i" -eq $((N-1)) ]; then END=$TOTAL; else END=$((START0 + (i+1) * SPAN)); fi
+  python clf_infer.py --model clf_model_v2.txt --thr 0.64 --cap 1000 \
+      --chunk 2500 --shard-start $START --shard-end $END --out-suffix "_s$i" \
+      > shard$i.log 2>&1 &
+  sleep 30
+done
+wait
+
+python merge_shards.py --shards base,_s0,_s1,_s2 --total 1732544
+```
+
+**Saves ~6% of the runtime.** If you would rather not trust the pre-computed
+rows, ignore this section and run the TL;DR block from row 0 — it produces a
+complete, self-consistent result on its own.
+
 ---
 
 ## Rules that MUST be followed
