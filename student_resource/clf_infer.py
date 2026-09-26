@@ -317,6 +317,12 @@ def main():
     ap.add_argument("--rebuild-index", action="store_true")
     ap.add_argument("--max-bucket", type=int, default=100_000,
                     help="skip a blocking key whose bucket is larger than this")
+    ap.add_argument("--shard-start", type=int, default=0,
+                    help="row offset into test S1 to START at (0-based, file order)")
+    ap.add_argument("--shard-end", type=int, default=0,
+                    help="row offset to END at; 0 = end of file")
+    ap.add_argument("--out-suffix", default="",
+                    help="suffix for shard output files, e.g. '_s0' -> matching_results_s0.tsv")
     args = ap.parse_args()
     t0 = time.time()
 
@@ -334,10 +340,21 @@ def main():
     if args.limit:
         s1lf = s1lf.head(args.limit)
     total = s1lf.select(pl.len()).collect().item()
-    print(f"[infer] test S1 rows: {total:,}", flush=True)
+    # SHARD: take a contiguous row range. The file is read in FILE ORDER, so
+    # ranges must not overlap or S1 ids get written twice.
+    shard_end = args.shard_end or total
+    if args.shard_start >= total:
+        print(f"[shard] start {args.shard_start} >= total {total}; nothing to do")
+        return
+    shard_end = min(shard_end, total)
+    s1lf = s1lf.slice(args.shard_start, shard_end - args.shard_start)
+    n_shard = shard_end - args.shard_start
+    print(f"[infer] test S1 rows: {total:,}  shard=[{args.shard_start:,}"
+          f",{shard_end:,}) = {n_shard:,}", flush=True)
 
-    mpath = os.path.join(args.out_dir, "matching_results.tsv")
-    cpath = os.path.join(args.out_dir, "candidate_pairs.tsv")
+    sfx = args.out_suffix
+    mpath = os.path.join(args.out_dir, f"matching_results{sfx}.tsv")
+    cpath = os.path.join(args.out_dir, f"candidate_pairs{sfx}.tsv")
     n_written = n_sing = n_pairs = 0
 
     with open(mpath, "w", encoding="utf-8", newline="\n") as mf, \
@@ -345,7 +362,7 @@ def main():
         mf.write("source1_entity_id\tmatched_entity_ids\n")
         cf.write("source1_entity_id\tcandidate_entity_ids\n")
 
-        n_chunks = (total + args.chunk - 1) // args.chunk
+        n_chunks = (n_shard + args.chunk - 1) // args.chunk
         for ci, part in enumerate(s1lf.collect().iter_slices(args.chunk)):
             part = add_keys(norm(part))
             s1ids, cand_map, match_map = process_chunk(
@@ -362,7 +379,7 @@ def main():
             if (ci + 1) % 5 == 0 or ci == n_chunks - 1:
                 el = time.time() - t0
                 rate = n_written / max(el, 1e-9)
-                eta = (total - n_written) / max(rate, 1e-9)
+                eta = (n_shard - n_written) / max(rate, 1e-9)
                 print(f"  chunk {ci+1}/{n_chunks} rows={n_written:,} "
                       f"singletons={n_sing:,} ({n_sing/max(n_written,1)*100:.1f}%) "
                       f"matches={n_pairs:,} {rate:.0f}/s eta={eta/60:.0f}min", flush=True)
