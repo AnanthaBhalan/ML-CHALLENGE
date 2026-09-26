@@ -1,0 +1,30 @@
+dataset/
+output/
+venv/
+__MACOSX/
+.DS_Store
+*.parquet
+
+# scratch / debug artifacts (NOT part of the submission)
+debug_out/
+debug_idx.parquet
+__pycache__/
+*.pyc
+*.log
+*.err
+
+# transient smoke-test / debug traces (results are kept)
+infer_dbg*.txt
+infer_smoke.txt
+infer_speed.txt
+infer_fix.txt
+infer_v2.txt
+clf_smoke.txt
+clf_train_smoke.txt
+dbg_call.txt
+k_probe.txt
+prune_smoke.txt
+soft_smoke.txt
+verify.txt
+union3_output.txt
+soft_addr.txt
